@@ -1,50 +1,66 @@
-/* inspired by: https://www.youtube.com/watch?v=jBKqA8FFpIM&ab_channel=JeremiahLynnDev */
-/* inspired by: https://www.split.io/blog/introduction-to-building-a-crud-api-with-node-js-and-express/*/
-
-var crypto = require('crypto');
 var passport = require('passport');
 var express = require('express');
 var localStrategy = require('passport-local');
-var User = require('../models/user');
 
 var router = express.Router();
+const sqlite3 = require('sqlite3').verbose();
+let db = new sqlite3.Database('my-db');
 
 passport.use(new localStrategy(async function verify(username, password, done) {
-    try {
-        const user = await User.findOne({where: {username: username}})
-        if (!user) {
-            return done(null, false, { message: 'Incorrect username or password'})
+
+    /*
+    This function is essential in logging in a user. It searches for a user by the username and password they entered from
+    the SQLLite3 database. 
+
+    However, user input is allowed to be directly concatenated into the SQL query string without proper sanitization. 
+    This allows the possibility of an SQL injection attack.
+
+    Username is not escaped or sanitized leaving it open for an XSS attack because it is directly displayed on 
+    home page after signup succeeds. Because the username is stored in the database
+    this kind of XSS attack is known as a Stored XSS vulnerability.
+    */
+
+    let sql = `SELECT * FROM user WHERE username = '${username}' AND password = '${password}'`;
+
+    db.get(sql, function(err, user) {
+        if (err) {
+            console.log(err);
+            return done(null, false, { message: 'Incorrect username or password'});
         }
 
-        crypto.pbkdf2(password, user.salt, 310000, 32, 'sha256', async function(err, hashedPassword) {
-        if (err) { return done (err)}
-
-        if (!crypto.timingSafeEqual(user.password, hashedPassword)) {
-            return done(null, false, {message: 'Incorrect username or password.' });
-        } 
-        
         return done(null, user);
 
-        }) 
+    });
 
-    } catch (e){
-        return done(e);
-    }
-} ))
+} ));
 
-/* registers function to serialise user objects into a session */
+/* 
+This serializes a user object into a session after successful login or signup.
+It creates a session token by the user id. 
+*/
 passport.serializeUser(function(user, done) {
     done(null, user.id);
 });
 
-passport.deserializeUser(function(id, done){
-    User.findByPk(id).then(function(user) { done(null,user); });
+/*
+This uses the session token i.e user id to deserialize a user. In other words,
+to retrieve the user's details from SQL using the serialized user id.
+*/
+passport.deserializeUser(function(userId, done) {
+    let sql = `SELECT * FROM user WHERE id = ${userId}`;
+    db.get(sql, function(err, user) {
+        if (err) {
+            return done(null, false, { message: 'Serialization issue'})
+        }
+        if (user) {
+            return done(null, user);
+        } else {
+            return done(null, false, { message: 'Serialization issue.' });
+        }
+    });
 });
 
 router.post('/login', passport.authenticate('local', {
-    /*
-    Login uses the passprt local strategy on lines 9 to 30 to securely retrieve a user using sequelize and crypto hashing.
-    */
     successRedirect: '/',
     failureRedirect: 'auth/login?failed=1'
 }));
@@ -56,29 +72,42 @@ router.get('/login', (req, res, next) => {
 
 router.post('/signup', (req, res, next) => {
 
-    let salt = crypto.randomBytes(16);
-    crypto.pbkdf2(req.body.password, salt, 310000, 32, 'sha256', async function(err, hashedPassword){
-        /* parameter if hashing fails */
-        if (err) {res.redirect('/auth/signup?failed=1')}
+    /*
+    This is where signup is processed after the user clicks on the submit button.
 
-        try {
-            
-            const user = await User.create({ username: req.body.username, password: hashedPassword, salt:salt})
+    This function is essential in logging in a user. It searches for a user by the username and password they entered from
+    the SQLLite3 database. 
 
-            req.login(user, function(err){
-                if (err) {res.redirect('/auth/signup?failed=3')}
-                res.redirect('/');
-            })
-        } catch (e) {
-            console.log(e);
-            res.redirect('/auth/signup?failed=2');
+    However, user input is allowed to be directly concatenated into the SQL query string without proper sanitization. 
+    This allows the possibility of an SQL injection attack.
+
+    No password hashing is used leaving password in plain text. This is a senstive data exposure.
+
+    Username is not escaped or sanitized leaving it open for an XSS attack because it is directly displayed on 
+    home page after signup succeeds. Because the username is stored in the database
+    this kind of XSS attack is known as a Stored XSS vulnerability.
+    */
+
+    let sql = `INSERT INTO user (username, password) VALUES ('${req.body.username}', '${req.body.password}')`;
+    db.run(sql, function(err) {
+        if (err) {
+            console.error(err);
+            return res.redirect('/auth/signup?failed=2');
         }
-    })
+        req.login({ id: this.lastID, username: req.body.username, password: req.body.password }, function(err) {
+            if (err) {
+                console.error(err);
+                return res.redirect('/auth/signup?failed=3');
+            }
+            res.redirect('/');
+        });
+    });
+
 })
 
+//get signup page
 router.get('/signup', (req, res, next) => {
     const failed = req.query.failed
-
     let msg = ''
     switch (failed) {
         case '1':
@@ -88,17 +117,17 @@ router.get('/signup', (req, res, next) => {
             msg = 'Username taken'
             break
         case '3':
-            msg = 'Failed to login'
+            msg = 'Failed to signup'
             break
     }
     res.render('signup', {failed:failed,msg:msg})
-})
+});
 
 router.post('/logout', (req, res, next) => {
     req.logout(function(err){
         if (err) {return next(err)}
         res.redirect('/')
     })
-})
+});
 
 module.exports = router;
