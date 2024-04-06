@@ -1,0 +1,31 @@
+<!--inspired by: https://www.youtube.com/watch?v=jBKqA8FFpIM&ab_channel=JeremiahLynnDev -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial scale=1.0">
+    <title>Sign Up</title>
+  </head>
+  <body>
+      <!-- prints error message if its failed -->
+      <% if (failed) {%>
+        <h4>Error: <%= msg%></h4>
+    <% } %> 
+   <h1>Sign Up</h1>
+   <form action="/auth/signup" method="post">
+    <section>
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+    </section>
+    <section>
+        <label for="current-password">Password</label>
+        <input id="current-password" name="password" type="password" autocomplete="current-password" required>
+    </section>
+    <button type="submit">Sign Up</button>
+    <a href="/auth/login">Already have an account?</a>
+   </form>
+
+  </body>
+</html>

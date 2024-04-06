@@ -1,0 +1,39 @@
+<!-- Display Users -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Management</title>
+</head>
+<body>
+    <!-- Add User Form -->
+  <h3>Add New User</h3>
+  <form action="/users" method="POST">
+    Username: <input type="username" name="username" required>
+    Password: <input id="current-password" name="password" type="password" autocomplete="current-password" required>
+    <input type="submit" value="Add User">
+  </form>
+<h3>Users</h3>
+<% if(users && users.length > 0) { %>
+  <ul>
+    <% users.forEach(function(user) { %>
+      <li>
+        <%= user.username %> 
+        <!-- Edit Link (Assuming you have a route and view for this) -->
+        <a href="/users/<%= user.id %>/edit">Edit</a> 
+        <!-- Delete Link - Not recommended to use GET for deletions without confirmation -->
+        
+        <form action="/users/<%= user.id %>/delete" method="POST">
+            <input type="hidden" name="_method" value="DELETE">
+            <button type="submit">Delete</button>
+          </form>
+      </li>
+    <% }); %>
+  </ul>
+<% } else { %>
+  <p>No users found.</p>
+<% } %>
+</body>
+</html>
