@@ -3,6 +3,20 @@ var path = require('path');
 var passport = require('passport');
 var session = require('express-session');
 var sequelize = require('./database') //require file I made
+const sqlite3 = require('sqlite3').verbose();
+let db = new sqlite3.Database('my-db');
+
+db.run(`CREATE TABLE IF NOT EXISTS user (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL
+)`, (err) => {
+    if (err) {
+        console.error('Error creating table', err);
+    } else {
+        console.log('Table "user" is ready');
+    }
+});
 
 sequelize.sync(
  // {force: true} //If I want data to be deleted after every time 

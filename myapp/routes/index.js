@@ -7,6 +7,9 @@ var router = express.Router();
 const User = require('../models/user'); 
 var crypto = require('crypto');
 
+const sqlite3 = require('sqlite3').verbose();
+let db = new sqlite3.Database('my-db');
+
 /* GET home page. */
 /* If user is signed in, I will render the index page if not, the user will be sent back to the login page  */
 router.get('/', function(req, res, next) {
@@ -24,8 +27,6 @@ router.post('/users/:id/edit', async (req, res) => {
     const { username } = req.body;
     const [updated] = await User.update({ username }, { where: { id: req.params.id }});
     if (updated) {
-      //const updatedUser = await User.findByPk(req.params.id);
-      //res.status(200).json(updatedUser);
       res.redirect('/users');
     } else {
       res.status(404).send('User not found');
@@ -46,7 +47,7 @@ router.post('/users', async (req, res) => {
         res.redirect('/users');
     } catch (e) {
         console.log(e);
-        // res.redirect('/auth/signup?failed=2');
+
     }
       //res.status(201).json(newUser);
     })
